@@ -41,16 +41,8 @@ func (this *RoleController) Gridlist() {
 */
 func (this *RoleController) Listtree() {
 	id, _ := this.GetInt64("id")
-	roles := service.RoleService.Listtree(true)
 	//展开一级目录和当前添加节点的父节点（权限菜单一般只会有两级所以这样可以让当前添加的节点及时的展示出来）
-	for i, role := range roles {
-		if role.Pid == 0 {
-			roles[i].Open = true
-		}
-		if role.Id == id {
-			roles[i].Open = true
-		}
-	}
+	roles := service.RoleService.ListtreeForEdit(id)
 	this.jsonResult(roles)
 }
 

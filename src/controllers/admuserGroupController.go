@@ -139,14 +139,8 @@ func (this *AdmUserGroupController) Delete() {
 加载权限树(用于添加管理员组的时候选择权限)
 */
 func (this *AdmUserGroupController) Loadtreewithoutroot() {
-	//查询树结构不加载root节点
-	roles := service.RoleService.Listtree(false)
-	//展开一级目录
-	for i, role := range roles {
-		if role.Pid == 0 {
-			roles[i].Open = true
-		}
-	}
+	//查询树结构不加载root节点，展开一级目录
+	roles := service.RoleService.ListtreeForSelect()
 	this.jsonResult(roles)
 }
 
@@ -156,24 +150,7 @@ func (this *AdmUserGroupController) Loadtreewithoutroot() {
 func (this *AdmUserGroupController) Loadtreechecked() {
 	admgroupuserid, _ := this.GetInt64("admgroupuserid")
 	roleIdMap := service.AdmUserGroupService.GetAllRoleByGroupId(admgroupuserid)
-	//查询树结构不加载root节点
-	roles := service.RoleService.Listtree(false)
-	if roleIdMap == nil {
-		//展开一级目录
-		for i, role := range roles {
-			if role.Pid == 0 {
-				roles[i].Open = true
-			}
-		}
-	} else {
-		for i, role := range roles {
-			if role.Pid == 0 {
-				roles[i].Open = true
-			}
-			if _, ok := roleIdMap[role.Id]; ok {
-				roles[i].Checked = true
-			}
-		}
-	}
+	//查询树结构不加载root节点，展开一级目录并选中已分配的权限
+	roles := service.RoleService.ListtreeChecked(roleIdMap)
 	this.jsonResult(roles)
 }

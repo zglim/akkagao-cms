@@ -36,25 +36,17 @@ func (this *admUserService) Gridlist(pager *common.Pager, admuserid, admusermail
 /**
 按照参数拼接sql查询条件
 */
-func genAdmUserCondition(admuserid, admusermail, admusername, admuserphone, accout string) (condition string) {
-	condition = " where t.isdel = 1 "
-	if !strings.EqualFold(admuserid, "") {
-		condition += " and t.id = " + admuserid + "'"
-	}
-	if !strings.EqualFold(admusermail, "") {
-		condition += " and t.mail = '" + admusermail + "'"
-	}
-	if !strings.EqualFold(admusername, "") {
-		condition += " and t.name =  '" + admusername + "'"
-	}
-	if !strings.EqualFold(admuserphone, "") {
-		condition += " and t.phone =  '" + admuserphone + "'"
-	}
-	if !strings.EqualFold(accout, "") {
-		condition += " and t.accout =  '" + accout + "'"
-	}
+func genAdmUserCondition(admuserid, admusermail, admusername, admuserphone, accout string) string {
+	condition := newConditionBuilder().
+		where(" where t.isdel = 1 ").
+		appendRaw(admuserid, " and t.id = "+admuserid+"'").
+		equal("t.mail", admusermail).
+		equal("t.name", admusername).
+		equal("t.phone", admuserphone).
+		equal("t.accout", accout).
+		String()
 	beego.Debug("condition is : ", condition)
-	return
+	return condition
 }
 
 /**

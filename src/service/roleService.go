@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"cms/src/common"
 	"cms/src/model"
 	"strconv"
@@ -53,34 +52,11 @@ func (this *roleService) Gridlist(pager *common.Pager, roleid int, roleName, rol
 	return count, roles
 }
 
-func genCondition(roleName, roleUrl string) (condition string) {
-	if !strings.EqualFold(roleName, "") {
-		condition += " and t.name = '" + roleName + "'"
-	}
-	if !strings.EqualFold(roleUrl, "") {
-		condition += " and t.roleurl = '" + roleUrl + "'"
-	}
-	return
-}
-
-/**
-查询树
-@param needRoot:查询的数据集中是否需要包含root节点
-*/
-func (this *roleService) Listtree(needRoot bool) []model.RoleTree {
-	var buf bytes.Buffer
-	buf.WriteString("SELECT id, pid, name, roleurl, ismenu, des from t_role t ")
-	if !needRoot {
-		buf.WriteString(" where t.id != 0")
-	}
-	var roles []model.RoleTree
-	beego.Debug("查询权限树sql：", buf.String())
-	_, err := o.Raw(buf.String()).QueryRows(&roles)
-	if err != nil {
-		beego.Error("查询权限树的role列表异常，error message：", err.Error())
-	}
-	beego.Debug("生成权限树的数据：", roles)
-	return roles
+func genCondition(roleName, roleUrl string) string {
+	return newConditionBuilder().
+		equal("t.name", roleName).
+		equal("t.roleurl", roleUrl).
+		String()
 }
 
 /**
@@ -167,23 +143,7 @@ func (this *roleService) LoadMenu(id int64) []model.RoleTree {
 		}
 	}
 
-	pidMap := make(map[int64]bool, 10)
-	for _, role := range roles {
-		pidMap[role.Pid] = true
-	}
-
-	for i, role := range roles {
-		//展开所有父节点
-		if pidMap[role.Id] {
-			roles[i].Open = true
-			continue
-		}
-		if !strings.EqualFold(role.Roleurl, "") {
-			click := "click: addTab('" + roles[i].Name + "','" + roles[i].Roleurl + "')"
-			roles[i].Click = click
-		}
-	}
-
+	decorateMenu(roles)
 	return roles
 }
 

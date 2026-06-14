@@ -31,12 +31,11 @@ func (this *admUserGroupService) Gridlist(groupName string, pager *common.Pager)
 	return
 }
 
-func genAdmUserGroupCondition(groupName string) (condition string) {
-	condition = " where t.isdel = 1 "
-	if groupName != "" {
-		condition += " and t.groupname = " + groupName
-	}
-	return
+func genAdmUserGroupCondition(groupName string) string {
+	return newConditionBuilder().
+		where(" where t.isdel = 1 ").
+		appendRaw(groupName, " and t.groupname = "+groupName).
+		String()
 }
 
 /**
