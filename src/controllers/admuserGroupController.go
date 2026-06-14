@@ -48,28 +48,10 @@ func (this *AdmUserGroupController) Addadmusergroup() {
 	groupname := this.GetString("groupname")
 	describe := this.GetString("describe")
 
-	//参数校验
-	valid := validation.Validation{}
-	valid.Required(groupname, "管理员组名称").Message("不能为空")
-	valid.MaxSize(groupname, 20, "管理员组名称").Message("长度不能超过20个字符")
-	valid.Required(describe, "描述信息").Message("不能为空")
-	valid.MaxSize(describe, 50, "描述信息").Message("长度不能超过50个字符")
-	valid.MinSize(ids, 1, "权限").Message("请至少选择一个")
+	//参数校验(校验不通过会直接输出错误信息并终止本次请求)
+	this.validateAdmUserGroupParam(groupname, describe, ids)
 
-	if valid.HasErrors() {
-		// 如果有错误信息，证明验证没通过
-		// 打印错误信息
-		for _, err := range valid.Errors {
-			this.jsonResult((err.Key + err.Message))
-		}
-	}
-
-	admusergroup := &model.Admusergroup{
-		Groupname:  groupname,
-		Des:        describe,
-		Createtime: time.Now(),
-		Updatetime: time.Now(),
-		Isdel:      1}
+	admusergroup := buildAdmUserGroup(0, groupname, describe)
 	if err := service.AdmUserGroupService.AddAdmUserGroup(admusergroup, ids); err != nil {
 		this.jsonResult(err.Error())
 	}
@@ -95,29 +77,10 @@ func (this *AdmUserGroupController) Modifyadmusergroup() {
 	describe := this.GetString("describe")
 	id, _ := this.GetInt64("id")
 
-	//参数校验
-	valid := validation.Validation{}
-	valid.Required(groupname, "管理员组名称").Message("不能为空")
-	valid.MaxSize(groupname, 20, "管理员组名称").Message("长度不能超过20个字符")
-	valid.Required(describe, "描述信息").Message("不能为空")
-	valid.MaxSize(describe, 50, "描述信息").Message("长度不能超过50个字符")
-	valid.MinSize(ids, 1, "权限").Message("请至少选择一个")
+	//参数校验(校验不通过会直接输出错误信息并终止本次请求)
+	this.validateAdmUserGroupParam(groupname, describe, ids)
 
-	if valid.HasErrors() {
-		// 如果有错误信息，证明验证没通过
-		// 打印错误信息
-		for _, err := range valid.Errors {
-			this.jsonResult((err.Key + err.Message))
-		}
-	}
-
-	admusergroup := &model.Admusergroup{
-		Id:         id,
-		Groupname:  groupname,
-		Des:        describe,
-		Createtime: time.Now(),
-		Updatetime: time.Now(),
-		Isdel:      1}
+	admusergroup := buildAdmUserGroup(id, groupname, describe)
 	if err := service.AdmUserGroupService.Modifyadmusergroup(admusergroup, ids); err != nil {
 		this.jsonResult(err.Error())
 	}
@@ -142,11 +105,7 @@ func (this *AdmUserGroupController) Loadtreewithoutroot() {
 	//查询树结构不加载root节点
 	roles := service.RoleService.Listtree(false)
 	//展开一级目录
-	for i, role := range roles {
-		if role.Pid == 0 {
-			roles[i].Open = true
-		}
-	}
+	expandRootRoleNodes(roles)
 	this.jsonResult(roles)
 }
 
@@ -158,22 +117,57 @@ func (this *AdmUserGroupController) Loadtreechecked() {
 	roleIdMap := service.AdmUserGroupService.GetAllRoleByGroupId(admgroupuserid)
 	//查询树结构不加载root节点
 	roles := service.RoleService.Listtree(false)
-	if roleIdMap == nil {
-		//展开一级目录
-		for i, role := range roles {
-			if role.Pid == 0 {
-				roles[i].Open = true
-			}
-		}
-	} else {
-		for i, role := range roles {
-			if role.Pid == 0 {
-				roles[i].Open = true
-			}
-			if _, ok := roleIdMap[role.Id]; ok {
-				roles[i].Checked = true
-			}
+	//展开一级目录
+	expandRootRoleNodes(roles)
+	//根据已有权限打勾(roleIdMap 为 nil 时不会勾选任何节点)
+	for i := range roles {
+		if _, ok := roleIdMap[roles[i].Id]; ok {
+			roles[i].Checked = true
 		}
 	}
 	this.jsonResult(roles)
+}
+
+/**
+校验管理员组的公共参数，校验不通过时直接输出第一条错误信息并终止本次请求
+*/
+func (this *AdmUserGroupController) validateAdmUserGroupParam(groupname, describe, ids string) {
+	valid := validation.Validation{}
+	valid.Required(groupname, "管理员组名称").Message("不能为空")
+	valid.MaxSize(groupname, 20, "管理员组名称").Message("长度不能超过20个字符")
+	valid.Required(describe, "描述信息").Message("不能为空")
+	valid.MaxSize(describe, 50, "描述信息").Message("长度不能超过50个字符")
+	valid.MinSize(ids, 1, "权限").Message("请至少选择一个")
+
+	if valid.HasErrors() {
+		// 如果有错误信息，证明验证没通过
+		// 打印错误信息
+		for _, err := range valid.Errors {
+			this.jsonResult((err.Key + err.Message))
+		}
+	}
+}
+
+/**
+根据表单参数组装管理员组对象，id 为 0 时表示新增
+*/
+func buildAdmUserGroup(id int64, groupname, describe string) *model.Admusergroup {
+	return &model.Admusergroup{
+		Id:         id,
+		Groupname:  groupname,
+		Des:        describe,
+		Createtime: time.Now(),
+		Updatetime: time.Now(),
+		Isdel:      1}
+}
+
+/**
+展开权限树的一级目录(pid 为 0 的节点)
+*/
+func expandRootRoleNodes(roles []model.RoleTree) {
+	for i := range roles {
+		if roles[i].Pid == 0 {
+			roles[i].Open = true
+		}
+	}
 }

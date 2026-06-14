@@ -47,30 +47,7 @@ func (this *admUserGroupService) AddAdmUserGroup(admusergroup *model.Admusergrou
 	if err != nil || id < 1 {
 		return &common.BizError{"添加失败"}
 	}
-	flag := false
-	idArray := strings.Split(ids, ",")
-	for _, roleId := range idArray {
-		beego.Debug("给ID为", id, "的管理员组添加", roleId, "权限")
-		roleIdInt, err := strconv.ParseInt(roleId, 10, 64)
-		if err != nil {
-			beego.Warn(roleId, "不是数字")
-			flag = true
-			continue
-		}
-		groupRoleRel := &model.GroupRoleRel{
-			Groupid: id,
-			Roleid:  roleIdInt,
-			Isdel:   1}
-		if _, err := o.Insert(groupRoleRel); err != nil {
-			beego.Warn("给ID为", id, "的管理员组添加", groupRoleRel.Roleid, "权限失败")
-			flag = true
-			continue
-		}
-	}
-	if flag {
-		return &common.BizError{"出现异常，部分权限添加失败，请补充添加权限。"}
-	}
-	return nil
+	return this.saveGroupRoleRel(id, ids)
 }
 
 /**
@@ -92,10 +69,17 @@ func (this *admUserGroupService) Modifyadmusergroup(admusergroup *model.Admuserg
 	}
 
 	//重新添加权限
+	return this.saveGroupRoleRel(id, ids)
+}
+
+/**
+解析逗号分隔的权限id并写入"组-权限"关系，若有部分权限写入失败则返回业务错误
+*/
+func (this *admUserGroupService) saveGroupRoleRel(groupId int64, ids string) error {
 	flag := false
 	idArray := strings.Split(ids, ",")
 	for _, roleId := range idArray {
-		beego.Debug("给ID为", id, "的管理员组添加", roleId, "权限")
+		beego.Debug("给ID为", groupId, "的管理员组添加", roleId, "权限")
 		roleIdInt, err := strconv.ParseInt(roleId, 10, 64)
 		if err != nil {
 			beego.Warn(roleId, "不是数字")
@@ -103,11 +87,11 @@ func (this *admUserGroupService) Modifyadmusergroup(admusergroup *model.Admuserg
 			continue
 		}
 		groupRoleRel := &model.GroupRoleRel{
-			Groupid: id,
+			Groupid: groupId,
 			Roleid:  roleIdInt,
 			Isdel:   1}
 		if _, err := o.Insert(groupRoleRel); err != nil {
-			beego.Warn("给ID为", id, "的管理员组添加", groupRoleRel.Roleid, "权限失败", err.Error())
+			beego.Warn("给ID为", groupId, "的管理员组添加", groupRoleRel.Roleid, "权限失败", err.Error())
 			flag = true
 			continue
 		}
