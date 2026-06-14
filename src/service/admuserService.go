@@ -14,50 +14,41 @@ import (
 
 type admUserService struct{}
 
-/**
+/*
+*
 分页查询管理员列表
 */
 func (this *admUserService) Gridlist(pager *common.Pager, admuserid, admusermail, admusername, admuserphone, accout string) (count int, admusers []model.Admuser) {
-	countsql := "select count(1) from t_admuser t "
-	condition := genAdmUserCondition(admuserid, admusermail, admusername, admuserphone, accout)
-	if err := o.Raw(countsql + condition).QueryRow(&count); err != nil || count < 1 {
+	condition := buildAdmUserCondition(admuserid, admusermail, admusername, admuserphone, accout)
+
+	countsql := "select count(1) from t_admuser t " + condition
+	if err := o.Raw(countsql).QueryRow(&count); err != nil || count < 1 {
 		beego.Debug("select admuser count err or result is null.")
 		return
 	}
 
-	listsql := "select id,accout,mail,name,phone,department,password,createtime,updatetime,isdel from t_admuser t "
-	if _, err := o.Raw(listsql+condition+common.LIMIT, pager.GetBegin(), pager.GetLen()).QueryRows(&admusers); err != nil {
+	listsql := "select id,accout,mail,name,phone,department,password,createtime,updatetime,isdel from t_admuser t " + condition
+	if _, err := o.Raw(listsql+common.LIMIT, pager.GetBegin(), pager.GetLen()).QueryRows(&admusers); err != nil {
 		beego.Warn("select admuserList from db error.")
 		return
 	}
 	return
 }
 
-/**
-按照参数拼接sql查询条件
-*/
-func genAdmUserCondition(admuserid, admusermail, admusername, admuserphone, accout string) (condition string) {
-	condition = " where t.isdel = 1 "
-	if !strings.EqualFold(admuserid, "") {
-		condition += " and t.id = " + admuserid + "'"
-	}
-	if !strings.EqualFold(admusermail, "") {
-		condition += " and t.mail = '" + admusermail + "'"
-	}
-	if !strings.EqualFold(admusername, "") {
-		condition += " and t.name =  '" + admusername + "'"
-	}
-	if !strings.EqualFold(admuserphone, "") {
-		condition += " and t.phone =  '" + admuserphone + "'"
-	}
-	if !strings.EqualFold(accout, "") {
-		condition += " and t.accout =  '" + accout + "'"
-	}
-	beego.Debug("condition is : ", condition)
-	return
+// buildAdmUserCondition 使用 ConditionBuilder 统一拼接管理员列表查询的 WHERE 子句。
+func buildAdmUserCondition(admuserid, admusermail, admusername, admuserphone, accout string) string {
+	cb := NewConditionBuilder("t.isdel = 1")
+	cb.Add("t.id", admuserid)
+	cb.Add("t.mail", admusermail)
+	cb.Add("t.name", admusername)
+	cb.Add("t.phone", admuserphone)
+	cb.Add("t.accout", accout)
+	beego.Debug("condition is : ", cb.Build())
+	return cb.Build()
 }
 
-/**
+/*
+*
 添加管理员
 */
 func (this *admUserService) AddAdmUser(admUser *model.Admuser, groupIds string) error {
@@ -88,7 +79,8 @@ func (this *admUserService) AddAdmUser(admUser *model.Admuser, groupIds string) 
 	return nil
 }
 
-/**
+/*
+*
 修改管理员
 */
 func (this *admUserService) ModifyAdmUser(admUser *model.Admuser, groupIds string) error {
@@ -160,7 +152,8 @@ func updateSet(admUser *model.Admuser) string {
 	return set
 }
 
-/**
+/*
+*
 删除管理员基本信息
 */
 func (this *admUserService) Delete(userids string) error {
@@ -175,7 +168,8 @@ func (this *admUserService) Delete(userids string) error {
 	return nil
 }
 
-/**
+/*
+*
 登陆鉴权
 */
 func (this *admUserService) Authentication(accout, encodePwd string) (admuser *model.Admuser, err error) {
@@ -192,7 +186,8 @@ func (this *admUserService) Authentication(accout, encodePwd string) (admuser *m
 	return admuser, nil
 }
 
-/**
+/*
+*
 根据ID查询管理员
 */
 func (this *admUserService) GetUserById(id int64) (admuser *model.Admuser, err error) {

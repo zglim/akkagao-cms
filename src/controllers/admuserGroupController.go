@@ -13,14 +13,16 @@ type AdmUserGroupController struct {
 	BaseController
 }
 
-/**
+/*
+*
 进入管理员组管理页面
 */
 func (this *AdmUserGroupController) List() {
 	this.show("admusergroup/admUserGroupList.html")
 }
 
-/**
+/*
+*
 获取管理员组列表数据
 */
 func (this *AdmUserGroupController) Gridlist() {
@@ -33,14 +35,16 @@ func (this *AdmUserGroupController) Gridlist() {
 	this.jsonResultPager(count, admuserGroup)
 }
 
-/**
+/*
+*
 进入添加页面
 */
 func (this *AdmUserGroupController) Toadd() {
 	this.show("admusergroup/addAdmusergroup.html")
 }
 
-/**
+/*
+*
 添加管理员组
 */
 func (this *AdmUserGroupController) Addadmusergroup() {
@@ -76,7 +80,8 @@ func (this *AdmUserGroupController) Addadmusergroup() {
 	this.jsonResult(SUCCESS)
 }
 
-/**
+/*
+*
 进入修改管理员组页面
 */
 func (this *AdmUserGroupController) Tomodify() {
@@ -86,7 +91,8 @@ func (this *AdmUserGroupController) Tomodify() {
 	this.show("admusergroup/modifyAdmusergroup.html")
 }
 
-/**
+/*
+*
 修改管理员组
 */
 func (this *AdmUserGroupController) Modifyadmusergroup() {
@@ -124,7 +130,8 @@ func (this *AdmUserGroupController) Modifyadmusergroup() {
 	this.jsonResult(SUCCESS)
 }
 
-/**
+/*
+*
 删除管理员组
 */
 func (this *AdmUserGroupController) Delete() {
@@ -135,45 +142,22 @@ func (this *AdmUserGroupController) Delete() {
 	this.jsonResult(SUCCESS)
 }
 
-/**
+/*
+*
 加载权限树(用于添加管理员组的时候选择权限)
 */
 func (this *AdmUserGroupController) Loadtreewithoutroot() {
-	//查询树结构不加载root节点
-	roles := service.RoleService.Listtree(false)
-	//展开一级目录
-	for i, role := range roles {
-		if role.Pid == 0 {
-			roles[i].Open = true
-		}
-	}
+	roles := service.RoleService.ListTreeForGroupMgr(nil)
 	this.jsonResult(roles)
 }
 
-/**
+/*
+*
 加载权限树(用于修改管理员组的时候选择权限-添加时选择的权限在修改的时候需要选中)
 */
 func (this *AdmUserGroupController) Loadtreechecked() {
 	admgroupuserid, _ := this.GetInt64("admgroupuserid")
 	roleIdMap := service.AdmUserGroupService.GetAllRoleByGroupId(admgroupuserid)
-	//查询树结构不加载root节点
-	roles := service.RoleService.Listtree(false)
-	if roleIdMap == nil {
-		//展开一级目录
-		for i, role := range roles {
-			if role.Pid == 0 {
-				roles[i].Open = true
-			}
-		}
-	} else {
-		for i, role := range roles {
-			if role.Pid == 0 {
-				roles[i].Open = true
-			}
-			if _, ok := roleIdMap[role.Id]; ok {
-				roles[i].Checked = true
-			}
-		}
-	}
+	roles := service.RoleService.ListTreeForGroupMgr(roleIdMap)
 	this.jsonResult(roles)
 }

@@ -13,14 +13,16 @@ type RoleController struct {
 	BaseController
 }
 
-/**
+/*
+*
 进入分页展示页面
 */
 func (this *RoleController) List() {
 	this.show("role/roleList.html")
 }
 
-/**
+/*
+*
 获取分页展示数据
 */
 func (this *RoleController) Gridlist() {
@@ -36,39 +38,34 @@ func (this *RoleController) Gridlist() {
 	this.jsonResultPager(count, roles)
 }
 
-/**
+/*
+*
 加载权限树
 */
 func (this *RoleController) Listtree() {
 	id, _ := this.GetInt64("id")
-	roles := service.RoleService.Listtree(true)
-	//展开一级目录和当前添加节点的父节点（权限菜单一般只会有两级所以这样可以让当前添加的节点及时的展示出来）
-	for i, role := range roles {
-		if role.Pid == 0 {
-			roles[i].Open = true
-		}
-		if role.Id == id {
-			roles[i].Open = true
-		}
-	}
+	roles := service.RoleService.ListTreeForRoleMgr(id)
 	this.jsonResult(roles)
 }
 
-/**
+/*
+*
 进入添加权限页面
 */
 func (this *RoleController) Toadd() {
 	this.show("role/addRole.html")
 }
 
-/**
+/*
+*
 进入添加权限目录页面
 */
 func (this *RoleController) Toadddir() {
 	this.show("role/addRoleDir.html")
 }
 
-/**
+/*
+*
 添加权限
 */
 func (this *RoleController) Addrole() {
@@ -111,7 +108,8 @@ func (this *RoleController) Addrole() {
 	this.jsonResult(SUCCESS)
 }
 
-/**
+/*
+*
 进入修改页面，根据ID查询权限对象
 */
 func (this *RoleController) Tomodify() {
@@ -125,7 +123,8 @@ func (this *RoleController) Tomodify() {
 	this.show("role/modifyRole.html")
 }
 
-/**
+/*
+*
 修改权限
 */
 func (this *RoleController) Modify() {
@@ -169,7 +168,8 @@ func (this *RoleController) Modify() {
 	this.jsonResult(SUCCESS)
 }
 
-/**
+/*
+*
 删除权限
 */
 func (this *RoleController) Deleterole() {

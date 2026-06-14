@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"cms/src/common"
 	"cms/src/model"
 	"strconv"
@@ -13,7 +12,8 @@ import (
 
 type roleService struct{}
 
-/**
+/*
+*
 添加权限
 */
 func (this *roleService) AddRole(role *model.Role) error {
@@ -23,13 +23,15 @@ func (this *roleService) AddRole(role *model.Role) error {
 	return nil
 }
 
-/**
+/*
+*
 查询列表的分页数据
 */
 func (this *roleService) Gridlist(pager *common.Pager, roleid int, roleName, roleUrl string) (int, []model.Role) {
+	condition := buildRoleCondition(roleName, roleUrl)
+
 	//查询总数
 	contsql := "SELECT count(1) from t_role t where t.pid = ?"
-	condition := genCondition(roleName, roleUrl)
 	var count int
 	err := o.Raw(contsql+condition, roleid).QueryRow(&count)
 	if err != nil {
@@ -44,7 +46,7 @@ func (this *roleService) Gridlist(pager *common.Pager, roleid int, roleName, rol
 
 	// 从数据库查询数据
 	var roles []model.Role
-	listsql := "SELECT id, pid, name, roleurl, module, action, ismenu, des from t_role t where t.pid = ?  "
+	listsql := "SELECT id, pid, name, roleurl, module, action, ismenu, des from t_role t where t.pid = ? "
 	_, err = o.Raw(listsql+condition+common.LIMIT, roleid, pager.GetBegin(), pager.GetLen()).QueryRows(&roles)
 	if err != nil {
 		beego.Error("查询Pid为", roleid, "的role列表异常，error message：", err.Error())
@@ -53,29 +55,27 @@ func (this *roleService) Gridlist(pager *common.Pager, roleid int, roleName, rol
 	return count, roles
 }
 
-func genCondition(roleName, roleUrl string) (condition string) {
-	if !strings.EqualFold(roleName, "") {
-		condition += " and t.name = '" + roleName + "'"
-	}
-	if !strings.EqualFold(roleUrl, "") {
-		condition += " and t.roleurl = '" + roleUrl + "'"
-	}
-	return
+// buildRoleCondition 使用 ConditionBuilder 统一拼接权限列表查询的附加条件。
+// 主查询已自带 "where t.pid = ?" 条件，这里只追加 AND 片段。
+func buildRoleCondition(roleName, roleUrl string) string {
+	cb := NewConditionBuilder("")
+	cb.Add("t.name", roleName)
+	cb.Add("t.roleurl", roleUrl)
+	return cb.AppendTo()
 }
 
-/**
-查询树
-@param needRoot:查询的数据集中是否需要包含root节点
-*/
-func (this *roleService) Listtree(needRoot bool) []model.RoleTree {
-	var buf bytes.Buffer
-	buf.WriteString("SELECT id, pid, name, roleurl, ismenu, des from t_role t ")
+// loadTreeData 从数据库加载权限树原始数据，作为各树数据准备方法的共用入口。
+func (this *roleService) loadTreeData(needRoot bool) []model.RoleTree {
+	base := ""
 	if !needRoot {
-		buf.WriteString(" where t.id != 0")
+		base = "t.id != 0"
 	}
+	cb := NewConditionBuilder(base)
+	sql := "SELECT id, pid, name, roleurl, ismenu, des from t_role t" + cb.Build()
+	beego.Debug("查询权限树sql：", sql)
+
 	var roles []model.RoleTree
-	beego.Debug("查询权限树sql：", buf.String())
-	_, err := o.Raw(buf.String()).QueryRows(&roles)
+	_, err := o.Raw(sql).QueryRows(&roles)
 	if err != nil {
 		beego.Error("查询权限树的role列表异常，error message：", err.Error())
 	}
@@ -83,7 +83,68 @@ func (this *roleService) Listtree(needRoot bool) []model.RoleTree {
 	return roles
 }
 
-/**
+// expandParentNodes 将所有拥有子节点的父节点标记为展开，
+// 并为带有 URL 的叶子节点组装 click 事件。
+func expandParentNodes(roles []model.RoleTree) {
+	pidMap := make(map[int64]bool, 10)
+	for _, role := range roles {
+		pidMap[role.Pid] = true
+	}
+	for i, role := range roles {
+		if pidMap[role.Id] {
+			roles[i].Open = true
+			continue
+		}
+		if !strings.EqualFold(role.Roleurl, "") {
+			roles[i].Click = "click: addTab('" + role.Name + "','" + role.Roleurl + "')"
+		}
+	}
+}
+
+// expandRootNodes 展开所有 pid == 0 的一级节点。
+func expandRootNodes(roles []model.RoleTree) {
+	for i, role := range roles {
+		if role.Pid == 0 {
+			roles[i].Open = true
+		}
+	}
+}
+
+// checkNodesByIds 将 roleIdMap 中命中的节点标记为选中。
+func checkNodesByIds(roles []model.RoleTree, roleIdMap map[int64]bool) {
+	for i, role := range roles {
+		if roleIdMap[role.Id] {
+			roles[i].Checked = true
+		}
+	}
+}
+
+// ListTreeForRoleMgr 加载权限管理页面使用的权限树：
+// 包含 root 节点，展开一级目录和当前指定节点。
+func (this *roleService) ListTreeForRoleMgr(currentId int64) []model.RoleTree {
+	roles := this.loadTreeData(true)
+	expandRootNodes(roles)
+	for i, role := range roles {
+		if role.Id == currentId {
+			roles[i].Open = true
+		}
+	}
+	return roles
+}
+
+// ListTreeForGroupMgr 加载管理员组页面使用的权限树：
+// 不含 root 节点，展开一级目录；roleIdMap 不为空时将命中节点标记为选中。
+func (this *roleService) ListTreeForGroupMgr(roleIdMap map[int64]bool) []model.RoleTree {
+	roles := this.loadTreeData(false)
+	expandRootNodes(roles)
+	if roleIdMap != nil {
+		checkNodesByIds(roles, roleIdMap)
+	}
+	return roles
+}
+
+/*
+*
 根据ID查询role
 */
 func (this *roleService) GetRoleById(id int64) (model.Role, error) {
@@ -94,7 +155,8 @@ func (this *roleService) GetRoleById(id int64) (model.Role, error) {
 	return role, nil
 }
 
-/**
+/*
+*
 修改权限
 */
 func (this *roleService) ModifyRole(r *model.Role) error {
@@ -110,7 +172,8 @@ func (this *roleService) ModifyRole(r *model.Role) error {
 	return nil
 }
 
-/**
+/*
+*
 删除权限
 */
 func (this *roleService) DeleteRole(ids []string) error {
@@ -130,7 +193,8 @@ func (this *roleService) DeleteRole(ids []string) error {
 	return nil
 }
 
-/**
+/*
+*
 权限校验
 */
 func (this *roleService) ValidateRole(controllerName, actionName string, id int64) error {
@@ -147,11 +211,12 @@ func (this *roleService) ValidateRole(controllerName, actionName string, id int6
 	return &common.BizError{"您没有权限执行此操作，请联系系统管理员。"}
 }
 
-/**
-加载权限树
+/*
+*
+加载权限树（左侧菜单），保留超级管理员与普通管理员的查询差异：
+超级管理员查询全部菜单节点，普通管理员只查询其所在组关联的菜单节点。
 */
 func (this *roleService) LoadMenu(id int64) []model.RoleTree {
-
 	var roles []model.RoleTree
 	if this.isAdministrator(id) {
 		selectSql := "SELECT t.id, pid, name, roleurl , ismenu, des from t_role t where t.id != 0 and t.ismenu = 0"
@@ -167,23 +232,7 @@ func (this *roleService) LoadMenu(id int64) []model.RoleTree {
 		}
 	}
 
-	pidMap := make(map[int64]bool, 10)
-	for _, role := range roles {
-		pidMap[role.Pid] = true
-	}
-
-	for i, role := range roles {
-		//展开所有父节点
-		if pidMap[role.Id] {
-			roles[i].Open = true
-			continue
-		}
-		if !strings.EqualFold(role.Roleurl, "") {
-			click := "click: addTab('" + roles[i].Name + "','" + roles[i].Roleurl + "')"
-			roles[i].Click = click
-		}
-	}
-
+	expandParentNodes(roles)
 	return roles
 }
 

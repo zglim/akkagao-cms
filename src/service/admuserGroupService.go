@@ -12,34 +12,36 @@ import (
 
 type admUserGroupService struct{}
 
-/**
+/*
+*
 查询管理员组分页列表
 */
 func (this *admUserGroupService) Gridlist(groupName string, pager *common.Pager) (count int, admUserGroup []model.Admusergroup) {
-	coutsql := "select count(1) from t_admusergroup t "
-	condition := genAdmUserGroupCondition(groupName)
-	if err := o.Raw(coutsql + condition).QueryRow(&count); err != nil || count < 1 {
+	condition := buildAdmUserGroupCondition(groupName)
+
+	coutsql := "select count(1) from t_admusergroup t " + condition
+	if err := o.Raw(coutsql).QueryRow(&count); err != nil || count < 1 {
 		//如果查询出错或者查询结果为空返回默认空值
 		return
 	}
 
-	listsql := "SELECT id,groupname,des,createtime,updatetime,isdel from t_admusergroup t "
-	if num, err := o.Raw(listsql+condition+common.LIMIT, pager.GetBegin(), pager.GetLen()).QueryRows(&admUserGroup); err != nil || num < 1 {
+	listsql := "SELECT id,groupname,des,createtime,updatetime,isdel from t_admusergroup t " + condition
+	if num, err := o.Raw(listsql+common.LIMIT, pager.GetBegin(), pager.GetLen()).QueryRows(&admUserGroup); err != nil || num < 1 {
 		//如果查询出错返回默认空值
 		return
 	}
 	return
 }
 
-func genAdmUserGroupCondition(groupName string) (condition string) {
-	condition = " where t.isdel = 1 "
-	if groupName != "" {
-		condition += " and t.groupname = " + groupName
-	}
-	return
+// buildAdmUserGroupCondition 使用 ConditionBuilder 统一拼接管理员组列表查询的 WHERE 子句。
+func buildAdmUserGroupCondition(groupName string) string {
+	cb := NewConditionBuilder("t.isdel = 1")
+	cb.Add("t.groupname", groupName)
+	return cb.Build()
 }
 
-/**
+/*
+*
 添加管理员组
 */
 func (this *admUserGroupService) AddAdmUserGroup(admusergroup *model.Admusergroup, ids string) error {
@@ -73,7 +75,8 @@ func (this *admUserGroupService) AddAdmUserGroup(admusergroup *model.Admusergrou
 	return nil
 }
 
-/**
+/*
+*
 修改管理员组
 */
 func (this *admUserGroupService) Modifyadmusergroup(admusergroup *model.Admusergroup, ids string) error {
@@ -118,7 +121,8 @@ func (this *admUserGroupService) Modifyadmusergroup(admusergroup *model.Admuserg
 	return nil
 }
 
-/**
+/*
+*
 删除管理员组
 */
 func (this *admUserGroupService) Delete(ids string) error {
@@ -137,7 +141,8 @@ func (this *admUserGroupService) Delete(ids string) error {
 	return nil
 }
 
-/**
+/*
+*
 根据ID获取管理员组信息
 */
 func (this *admUserGroupService) GetAdmUserGroupById(id int64) model.Admusergroup {
@@ -148,7 +153,8 @@ func (this *admUserGroupService) GetAdmUserGroupById(id int64) model.Admusergrou
 	return admusergroup
 }
 
-/**
+/*
+*
 根据管理员组ID获取所有的权限列表
 */
 func (this *admUserGroupService) GetAllRoleByGroupId(id int64) map[int64]bool {
