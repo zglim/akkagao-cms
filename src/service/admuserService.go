@@ -61,29 +61,15 @@ func genAdmUserCondition(admuserid, admusermail, admusername, admuserphone, acco
 添加管理员
 */
 func (this *admUserService) AddAdmUser(admUser *model.Admuser, groupIds string) error {
-	flag := false
 	if admUserId, err := o.Insert(admUser); err != nil {
 		beego.Warn("insert admUser fail, admUser:", admUser, err.Error())
 		return &common.BizError{"添加失败,账号已经存在"}
 	} else {
-		idArray := strings.Split(groupIds, ",")
-		for _, gid := range idArray {
-			gidint, err := strconv.ParseInt(gid, 10, 64)
-			if err != nil {
-				beego.Debug("id 转换成数字异常，id：", gid)
-				flag = true
-			}
-			rel := model.UserGroupRel{
-				Userid:  admUserId,
-				Groupid: gidint,
-				Isdel:   1}
-			if _, err := o.Insert(&rel); err != nil {
-				flag = true
-			}
+		if !batchInsertRelations(groupIds, func(gid int64) interface{} {
+			return &model.UserGroupRel{Userid: admUserId, Groupid: gid, Isdel: 1}
+		}) {
+			return &common.BizError{"出现异常，部分权限添加失败，请补充添加权限。"}
 		}
-	}
-	if flag {
-		return &common.BizError{"出现异常，部分权限添加失败，请补充添加权限。"}
 	}
 	return nil
 }
@@ -92,43 +78,26 @@ func (this *admUserService) AddAdmUser(admUser *model.Admuser, groupIds string) 
 修改管理员
 */
 func (this *admUserService) ModifyAdmUser(admUser *model.Admuser, groupIds string) error {
-	flag := false
 	updateSql := "UPDATE t_admuser SET "
-
 	set := updateSet(admUser)
 	condition := " where id = ? "
 
-	// if _, err := o.Raw(updateSql, admUser.Accout, admUser.Mail, admUser.Name, admUser.Phone, admUser.Department, time.Now(), admUser.Id).Exec(); err != nil {
 	id := admUser.Id
 	if _, err := o.Raw(updateSql+set+condition, id).Exec(); err != nil {
 		beego.Warn("update admUser fail, admUser:", admUser, err.Error())
 		return &common.BizError{"修改失败"}
-	} else {
-		//逻辑删除所有用户和组关联关系UserGroupRel
-		delRelSql := "update t_user_group_rel set isdel = 0 where userid = ?"
-		if _, err := o.Raw(delRelSql, admUser.Id).Exec(); err != nil {
-			return &common.BizError{"修改失败"}
-		}
-
-		idArray := strings.Split(groupIds, ",")
-		//重新添加关联关系
-		for _, gid := range idArray {
-			gidint, err := strconv.ParseInt(gid, 10, 64)
-			if err != nil {
-				beego.Debug("id 转换成数字异常，id：", gid)
-				flag = true
-			}
-			rel := model.UserGroupRel{
-				Userid:  admUser.Id,
-				Groupid: gidint,
-				Isdel:   1}
-			if _, err := o.Insert(&rel); err != nil {
-				beego.Warn("添加组关系失败", rel, err.Error())
-				flag = true
-			}
-		}
 	}
-	if flag {
+
+	//逻辑删除所有用户和组关联关系UserGroupRel
+	delRelSql := "update t_user_group_rel set isdel = 0 where userid = ?"
+	if _, err := o.Raw(delRelSql, admUser.Id).Exec(); err != nil {
+		return &common.BizError{"修改失败"}
+	}
+
+	//重新添加关联关系
+	if !batchInsertRelations(groupIds, func(gid int64) interface{} {
+		return &model.UserGroupRel{Userid: admUser.Id, Groupid: gid, Isdel: 1}
+	}) {
 		return &common.BizError{"出现异常，部分权限修改失败，请补充添加权限。"}
 	}
 

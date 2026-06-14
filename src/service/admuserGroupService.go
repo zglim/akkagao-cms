@@ -4,7 +4,6 @@ import (
 	"cms/src/common"
 	"cms/src/model"
 	"strconv"
-	"strings"
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/orm"
@@ -47,27 +46,10 @@ func (this *admUserGroupService) AddAdmUserGroup(admusergroup *model.Admusergrou
 	if err != nil || id < 1 {
 		return &common.BizError{"添加失败"}
 	}
-	flag := false
-	idArray := strings.Split(ids, ",")
-	for _, roleId := range idArray {
+	if !batchInsertRelations(ids, func(roleId int64) interface{} {
 		beego.Debug("给ID为", id, "的管理员组添加", roleId, "权限")
-		roleIdInt, err := strconv.ParseInt(roleId, 10, 64)
-		if err != nil {
-			beego.Warn(roleId, "不是数字")
-			flag = true
-			continue
-		}
-		groupRoleRel := &model.GroupRoleRel{
-			Groupid: id,
-			Roleid:  roleIdInt,
-			Isdel:   1}
-		if _, err := o.Insert(groupRoleRel); err != nil {
-			beego.Warn("给ID为", id, "的管理员组添加", groupRoleRel.Roleid, "权限失败")
-			flag = true
-			continue
-		}
-	}
-	if flag {
+		return &model.GroupRoleRel{Groupid: id, Roleid: roleId, Isdel: 1}
+	}) {
 		return &common.BizError{"出现异常，部分权限添加失败，请补充添加权限。"}
 	}
 	return nil
@@ -92,27 +74,10 @@ func (this *admUserGroupService) Modifyadmusergroup(admusergroup *model.Admuserg
 	}
 
 	//重新添加权限
-	flag := false
-	idArray := strings.Split(ids, ",")
-	for _, roleId := range idArray {
+	if !batchInsertRelations(ids, func(roleId int64) interface{} {
 		beego.Debug("给ID为", id, "的管理员组添加", roleId, "权限")
-		roleIdInt, err := strconv.ParseInt(roleId, 10, 64)
-		if err != nil {
-			beego.Warn(roleId, "不是数字")
-			flag = true
-			continue
-		}
-		groupRoleRel := &model.GroupRoleRel{
-			Groupid: id,
-			Roleid:  roleIdInt,
-			Isdel:   1}
-		if _, err := o.Insert(groupRoleRel); err != nil {
-			beego.Warn("给ID为", id, "的管理员组添加", groupRoleRel.Roleid, "权限失败", err.Error())
-			flag = true
-			continue
-		}
-	}
-	if flag {
+		return &model.GroupRoleRel{Groupid: id, Roleid: roleId, Isdel: 1}
+	}) {
 		return &common.BizError{"出现异常，部分权限添加失败，请补充添加权限。"}
 	}
 	return nil
