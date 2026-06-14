@@ -84,6 +84,19 @@ func (this *roleService) Listtree(needRoot bool) []model.RoleTree {
 }
 
 /**
+加载权限管理页面的权限树，展开根节点和指定节点
+*/
+func (this *roleService) ListtreeForEdit(expandId int64) []model.RoleTree {
+	roles := this.Listtree(true)
+	for i, role := range roles {
+		if role.Pid == 0 || role.Id == expandId {
+			roles[i].Open = true
+		}
+	}
+	return roles
+}
+
+/**
 根据ID查询role
 */
 func (this *roleService) GetRoleById(id int64) (model.Role, error) {
@@ -148,10 +161,9 @@ func (this *roleService) ValidateRole(controllerName, actionName string, id int6
 }
 
 /**
-加载权限树
+加载权限树（用户菜单）
 */
 func (this *roleService) LoadMenu(id int64) []model.RoleTree {
-
 	var roles []model.RoleTree
 	if this.isAdministrator(id) {
 		selectSql := "SELECT t.id, pid, name, roleurl , ismenu, des from t_role t where t.id != 0 and t.ismenu = 0"
@@ -167,20 +179,11 @@ func (this *roleService) LoadMenu(id int64) []model.RoleTree {
 		}
 	}
 
-	pidMap := make(map[int64]bool, 10)
-	for _, role := range roles {
-		pidMap[role.Pid] = true
-	}
-
-	for i, role := range roles {
-		//展开所有父节点
-		if pidMap[role.Id] {
-			roles[i].Open = true
-			continue
-		}
-		if !strings.EqualFold(role.Roleurl, "") {
-			click := "click: addTab('" + roles[i].Name + "','" + roles[i].Roleurl + "')"
-			roles[i].Click = click
+	// 展开所有父节点，为叶子节点设置点击事件
+	expandParentNodes(roles)
+	for i := range roles {
+		if !roles[i].Open {
+			roles[i].Click = buildTreeClickHandler(roles[i].Name, roles[i].Roleurl)
 		}
 	}
 
@@ -207,4 +210,25 @@ func (this *roleService) isAdministrator(id int64) bool {
 		}
 	}
 	return flag
+}
+
+// expandParentNodes 将所有父节点（被其他节点引用为pid的节点）标记为展开状态
+func expandParentNodes(roles []model.RoleTree) {
+	pidMap := make(map[int64]bool, len(roles))
+	for _, role := range roles {
+		pidMap[role.Pid] = true
+	}
+	for i, role := range roles {
+		if pidMap[role.Id] {
+			roles[i].Open = true
+		}
+	}
+}
+
+// buildTreeClickHandler 构建树节点的点击事件处理字符串
+func buildTreeClickHandler(name, roleurl string) string {
+	if strings.EqualFold(roleurl, "") {
+		return ""
+	}
+	return "click: addTab('" + name + "','" + roleurl + "')"
 }

@@ -13,6 +13,45 @@ type RoleController struct {
 	BaseController
 }
 
+// parseRoleFromRequest 从请求中统一读取权限参数（新增和修改共用）
+func (this *RoleController) parseRoleFromRequest() *model.Role {
+	id, _ := this.GetInt64("id")
+	pid, _ := this.GetInt64("pid")
+	name := this.GetString("name")
+	roleurl := this.GetString("roleurl")
+	ismenu, _ := this.GetInt8("ismenu")
+	describe := this.GetString("describe")
+	module := this.GetString("module")
+	action := this.GetString("action")
+
+	return &model.Role{
+		Id:      id,
+		Pid:     pid,
+		Name:    name,
+		Roleurl: roleurl,
+		Ismenu:  ismenu,
+		Des:     describe,
+		Module:  module,
+		Action:  action,
+	}
+}
+
+// validateRoleFields 校验权限名称和描述，返回第一条错误信息，通过则返回空字符串
+func (this *RoleController) validateRoleFields(name, describe string) string {
+	valid := validation.Validation{}
+	valid.Required(name, "权限名称").Message("不能为空")
+	valid.MaxSize(name, 20, "权限名称").Message("长度不能超过20个字符")
+	valid.Required(describe, "描述信息").Message("不能为空")
+	valid.MaxSize(describe, 50, "描述信息").Message("长度不能超过50个字符")
+
+	if valid.HasErrors() {
+		for _, err := range valid.Errors {
+			return err.Key + err.Message
+		}
+	}
+	return ""
+}
+
 /**
 进入分页展示页面
 */
@@ -41,16 +80,7 @@ func (this *RoleController) Gridlist() {
 */
 func (this *RoleController) Listtree() {
 	id, _ := this.GetInt64("id")
-	roles := service.RoleService.Listtree(true)
-	//展开一级目录和当前添加节点的父节点（权限菜单一般只会有两级所以这样可以让当前添加的节点及时的展示出来）
-	for i, role := range roles {
-		if role.Pid == 0 {
-			roles[i].Open = true
-		}
-		if role.Id == id {
-			roles[i].Open = true
-		}
-	}
+	roles := service.RoleService.ListtreeForEdit(id)
 	this.jsonResult(roles)
 }
 
@@ -72,39 +102,13 @@ func (this *RoleController) Toadddir() {
 添加权限
 */
 func (this *RoleController) Addrole() {
-	pid, _ := this.GetInt64("pid")
-	name := this.GetString("name")
-	roleurl := this.GetString("roleurl")
-	ismenu, _ := this.GetInt8("ismenu")
-	describe := this.GetString("describe")
-	module := this.GetString("module")
-	action := this.GetString("action")
+	role := this.parseRoleFromRequest()
 
-	//参数校验
-	valid := validation.Validation{}
-	valid.Required(name, "权限名称").Message("不能为空")
-	valid.MaxSize(name, 20, "权限名称").Message("长度不能超过20个字符")
-	valid.Required(describe, "描述信息").Message("不能为空")
-	valid.MaxSize(describe, 50, "描述信息").Message("长度不能超过50个字符")
-
-	if valid.HasErrors() {
-		// 如果有错误信息，证明验证没通过
-		// 打印错误信息
-		for _, err := range valid.Errors {
-			this.jsonResult((err.Key + err.Message))
-		}
+	if errMsg := this.validateRoleFields(role.Name, role.Des); errMsg != "" {
+		this.jsonResult(errMsg)
 	}
 
-	role := &model.Role{
-		Pid:     pid,
-		Name:    name,
-		Roleurl: roleurl,
-		Ismenu:  ismenu,
-		Des:     describe,
-		Module:  module,
-		Action:  action}
 	beego.Debug("add role:", role)
-
 	if err := service.RoleService.AddRole(role); err != nil {
 		this.jsonResult(err.Error())
 	}
@@ -129,39 +133,12 @@ func (this *RoleController) Tomodify() {
 修改权限
 */
 func (this *RoleController) Modify() {
-	id, _ := this.GetInt64("id")
-	pid, _ := this.GetInt64("pid")
-	name := this.GetString("name")
-	roleurl := this.GetString("roleurl")
-	ismenu, _ := this.GetInt8("ismenu")
-	describe := this.GetString("describe")
-	module := this.GetString("module")
-	action := this.GetString("action")
+	role := this.parseRoleFromRequest()
 
-	//参数校验
-	valid := validation.Validation{}
-	valid.Required(name, "权限名称").Message("不能为空")
-	valid.MaxSize(name, 20, "权限名称").Message("长度不能超过20个字符")
-	valid.Required(describe, "描述信息").Message("不能为空")
-	valid.MaxSize(describe, 50, "描述信息").Message("长度不能超过50个字符")
-
-	if valid.HasErrors() {
-		// 如果有错误信息，证明验证没通过
-		// 打印错误信息
-		for _, err := range valid.Errors {
-			this.jsonResult((err.Key + err.Message))
-		}
+	if errMsg := this.validateRoleFields(role.Name, role.Des); errMsg != "" {
+		this.jsonResult(errMsg)
 	}
 
-	role := &model.Role{
-		Id:      id,
-		Pid:     pid,
-		Name:    name,
-		Roleurl: roleurl,
-		Ismenu:  ismenu,
-		Des:     describe,
-		Module:  module,
-		Action:  action}
 	beego.Debug(role)
 	if err := service.RoleService.ModifyRole(role); err != nil {
 		this.jsonResult("修改失败！")

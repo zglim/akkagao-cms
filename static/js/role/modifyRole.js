@@ -1,6 +1,5 @@
 function submitModifyRoleForm() {
-    url = "/role/modify"
-    var pid = $("input[name='rolepid']").val()
+    var pid = $("input[name='rolepid']").val();
     var data = {
         pid: pid,
         id: $("input[name='m_roleid']").val(),
@@ -12,12 +11,11 @@ function submitModifyRoleForm() {
         describe: $("input[name='m_roledescribe']").val()
     };
 
-    $.post(url, data, function (result) {
+    $.post("/role/modify", data, function (result) {
         if (result == "success") {
-            clearModifyRoleForm()
-            loadTree(pid)
-            loaddatagrid(pid)
-            $('#modifyrole').window('close')
+            clearModifyRoleForm();
+            refreshRoleView(pid);
+            $('#modifyrole').window('close');
             $.messager.alert('操作提示', "修改成功", 'info');
         }
     });

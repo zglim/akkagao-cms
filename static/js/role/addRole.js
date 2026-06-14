@@ -1,6 +1,5 @@
 function submitAddRoleForm() {
-    url = "/role/addrole"
-    var pid = $("input[name='searchRolepid']").val()
+    var pid = $("input[name='searchRolepid']").val();
     var data = {
         pid: pid,
         name: $("input[name='rolename']").val(),
@@ -11,11 +10,10 @@ function submitAddRoleForm() {
         describe: $("input[name='roledescribe']").val()
     };
 
-    $.post(url, data, function (result) {
+    $.post("/role/addrole", data, function (result) {
         if (result == "success") {
-            clearAddRoleForm()
-            loadTree(pid)
-            loaddatagrid(pid)
+            clearAddRoleForm();
+            refreshRoleView(pid);
             $.messager.alert('操作提示', "添加成功", 'info');
         }
     });
@@ -23,5 +21,5 @@ function submitAddRoleForm() {
 
 function clearAddRoleForm() {
     $('#addrole').form('clear');
-    $("#roleismenu").combobox({value:"1"})
+    $("#roleismenu").combobox({value:"1"});
 }
