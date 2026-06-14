@@ -47,30 +47,7 @@ func (this *admUserGroupService) AddAdmUserGroup(admusergroup *model.Admusergrou
 	if err != nil || id < 1 {
 		return &common.BizError{"添加失败"}
 	}
-	flag := false
-	idArray := strings.Split(ids, ",")
-	for _, roleId := range idArray {
-		beego.Debug("给ID为", id, "的管理员组添加", roleId, "权限")
-		roleIdInt, err := strconv.ParseInt(roleId, 10, 64)
-		if err != nil {
-			beego.Warn(roleId, "不是数字")
-			flag = true
-			continue
-		}
-		groupRoleRel := &model.GroupRoleRel{
-			Groupid: id,
-			Roleid:  roleIdInt,
-			Isdel:   1}
-		if _, err := o.Insert(groupRoleRel); err != nil {
-			beego.Warn("给ID为", id, "的管理员组添加", groupRoleRel.Roleid, "权限失败")
-			flag = true
-			continue
-		}
-	}
-	if flag {
-		return &common.BizError{"出现异常，部分权限添加失败，请补充添加权限。"}
-	}
-	return nil
+	return insertGroupRoleRels(id, ids)
 }
 
 /**
@@ -92,30 +69,7 @@ func (this *admUserGroupService) Modifyadmusergroup(admusergroup *model.Admuserg
 	}
 
 	//重新添加权限
-	flag := false
-	idArray := strings.Split(ids, ",")
-	for _, roleId := range idArray {
-		beego.Debug("给ID为", id, "的管理员组添加", roleId, "权限")
-		roleIdInt, err := strconv.ParseInt(roleId, 10, 64)
-		if err != nil {
-			beego.Warn(roleId, "不是数字")
-			flag = true
-			continue
-		}
-		groupRoleRel := &model.GroupRoleRel{
-			Groupid: id,
-			Roleid:  roleIdInt,
-			Isdel:   1}
-		if _, err := o.Insert(groupRoleRel); err != nil {
-			beego.Warn("给ID为", id, "的管理员组添加", groupRoleRel.Roleid, "权限失败", err.Error())
-			flag = true
-			continue
-		}
-	}
-	if flag {
-		return &common.BizError{"出现异常，部分权限添加失败，请补充添加权限。"}
-	}
-	return nil
+	return insertGroupRoleRels(id, ids)
 }
 
 /**
@@ -164,4 +118,34 @@ func (this *admUserGroupService) GetAllRoleByGroupId(id int64) map[int64]bool {
 		roleIdMap[id] = true
 	}
 	return roleIdMap
+}
+
+/**
+批量插入管理员组与权限的关联关系（新增和修改共用）
+*/
+func insertGroupRoleRels(groupId int64, ids string) error {
+	flag := false
+	idArray := strings.Split(ids, ",")
+	for _, roleId := range idArray {
+		beego.Debug("给ID为", groupId, "的管理员组添加", roleId, "权限")
+		roleIdInt, err := strconv.ParseInt(roleId, 10, 64)
+		if err != nil {
+			beego.Warn(roleId, "不是数字")
+			flag = true
+			continue
+		}
+		groupRoleRel := &model.GroupRoleRel{
+			Groupid: groupId,
+			Roleid:  roleIdInt,
+			Isdel:   1}
+		if _, err := o.Insert(groupRoleRel); err != nil {
+			beego.Warn("给ID为", groupId, "的管理员组添加", groupRoleRel.Roleid, "权限失败")
+			flag = true
+			continue
+		}
+	}
+	if flag {
+		return &common.BizError{"出现异常，部分权限添加失败，请补充添加权限。"}
+	}
+	return nil
 }

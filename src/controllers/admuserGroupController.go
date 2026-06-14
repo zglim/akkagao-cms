@@ -44,24 +44,9 @@ func (this *AdmUserGroupController) Toadd() {
 添加管理员组
 */
 func (this *AdmUserGroupController) Addadmusergroup() {
-	ids := this.GetString("ids")
-	groupname := this.GetString("groupname")
-	describe := this.GetString("describe")
-
-	//参数校验
-	valid := validation.Validation{}
-	valid.Required(groupname, "管理员组名称").Message("不能为空")
-	valid.MaxSize(groupname, 20, "管理员组名称").Message("长度不能超过20个字符")
-	valid.Required(describe, "描述信息").Message("不能为空")
-	valid.MaxSize(describe, 50, "描述信息").Message("长度不能超过50个字符")
-	valid.MinSize(ids, 1, "权限").Message("请至少选择一个")
-
-	if valid.HasErrors() {
-		// 如果有错误信息，证明验证没通过
-		// 打印错误信息
-		for _, err := range valid.Errors {
-			this.jsonResult((err.Key + err.Message))
-		}
+	ids, groupname, describe, errMsg := this.parseGroupParams()
+	if errMsg != "" {
+		this.jsonResult(errMsg)
 	}
 
 	admusergroup := &model.Admusergroup{
@@ -90,26 +75,11 @@ func (this *AdmUserGroupController) Tomodify() {
 修改管理员组
 */
 func (this *AdmUserGroupController) Modifyadmusergroup() {
-	ids := this.GetString("ids")
-	groupname := this.GetString("groupname")
-	describe := this.GetString("describe")
-	id, _ := this.GetInt64("id")
-
-	//参数校验
-	valid := validation.Validation{}
-	valid.Required(groupname, "管理员组名称").Message("不能为空")
-	valid.MaxSize(groupname, 20, "管理员组名称").Message("长度不能超过20个字符")
-	valid.Required(describe, "描述信息").Message("不能为空")
-	valid.MaxSize(describe, 50, "描述信息").Message("长度不能超过50个字符")
-	valid.MinSize(ids, 1, "权限").Message("请至少选择一个")
-
-	if valid.HasErrors() {
-		// 如果有错误信息，证明验证没通过
-		// 打印错误信息
-		for _, err := range valid.Errors {
-			this.jsonResult((err.Key + err.Message))
-		}
+	ids, groupname, describe, errMsg := this.parseGroupParams()
+	if errMsg != "" {
+		this.jsonResult(errMsg)
 	}
+	id, _ := this.GetInt64("id")
 
 	admusergroup := &model.Admusergroup{
 		Id:         id,
@@ -136,17 +106,45 @@ func (this *AdmUserGroupController) Delete() {
 }
 
 /**
+解析并校验管理员组参数（新增和修改共用）
+*/
+func (this *AdmUserGroupController) parseGroupParams() (ids, groupname, describe, errMsg string) {
+	ids = this.GetString("ids")
+	groupname = this.GetString("groupname")
+	describe = this.GetString("describe")
+
+	valid := validation.Validation{}
+	valid.Required(groupname, "管理员组名称").Message("不能为空")
+	valid.MaxSize(groupname, 20, "管理员组名称").Message("长度不能超过20个字符")
+	valid.Required(describe, "描述信息").Message("不能为空")
+	valid.MaxSize(describe, 50, "描述信息").Message("长度不能超过50个字符")
+	valid.MinSize(ids, 1, "权限").Message("请至少选择一个")
+
+	if valid.HasErrors() {
+		errMsg = valid.Errors[0].Key + valid.Errors[0].Message
+	}
+	return
+}
+
+/**
+展开一级目录节点
+*/
+func expandFirstLevelNodes(roles []model.RoleTree) {
+	for i, role := range roles {
+		if role.Pid == 0 {
+			roles[i].Open = true
+		}
+	}
+}
+
+/**
 加载权限树(用于添加管理员组的时候选择权限)
 */
 func (this *AdmUserGroupController) Loadtreewithoutroot() {
 	//查询树结构不加载root节点
 	roles := service.RoleService.Listtree(false)
 	//展开一级目录
-	for i, role := range roles {
-		if role.Pid == 0 {
-			roles[i].Open = true
-		}
-	}
+	expandFirstLevelNodes(roles)
 	this.jsonResult(roles)
 }
 
@@ -158,18 +156,11 @@ func (this *AdmUserGroupController) Loadtreechecked() {
 	roleIdMap := service.AdmUserGroupService.GetAllRoleByGroupId(admgroupuserid)
 	//查询树结构不加载root节点
 	roles := service.RoleService.Listtree(false)
-	if roleIdMap == nil {
-		//展开一级目录
+	//展开一级目录
+	expandFirstLevelNodes(roles)
+	//根据已有权限打勾
+	if roleIdMap != nil {
 		for i, role := range roles {
-			if role.Pid == 0 {
-				roles[i].Open = true
-			}
-		}
-	} else {
-		for i, role := range roles {
-			if role.Pid == 0 {
-				roles[i].Open = true
-			}
 			if _, ok := roleIdMap[role.Id]; ok {
 				roles[i].Checked = true
 			}
