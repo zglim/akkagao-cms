@@ -1,6 +1,6 @@
 function submitAddRoleForm() {
-    url = "/role/addrole"
-    var pid = $("input[name='searchRolepid']").val()
+    var url = "/role/addrole"
+    var pid = getRolePid()
     var data = {
         pid: pid,
         name: $("input[name='rolename']").val(),

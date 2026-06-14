@@ -84,6 +84,54 @@ func (this *roleService) Listtree(needRoot bool) []model.RoleTree {
 }
 
 /**
+查询用于权限编辑页面的权限树：在完整树（含 root 节点）基础上，
+展开一级目录和当前编辑的节点（权限菜单一般只有两级，这样能让当前新增/编辑的节点及时展示出来）
+*/
+func (this *roleService) ListtreeForEdit(currentId int64) []model.RoleTree {
+	roles := this.Listtree(true)
+	openNodes(roles, func(role model.RoleTree) bool {
+		return role.Pid == 0 || role.Id == currentId
+	})
+	return roles
+}
+
+/**
+收集所有作为父节点出现过的权限ID
+*/
+func collectParentIds(roles []model.RoleTree) map[int64]bool {
+	parents := make(map[int64]bool, len(roles))
+	for _, role := range roles {
+		parents[role.Pid] = true
+	}
+	return parents
+}
+
+/**
+展开满足条件的权限树节点
+*/
+func openNodes(roles []model.RoleTree, shouldOpen func(model.RoleTree) bool) {
+	for i := range roles {
+		if shouldOpen(roles[i]) {
+			roles[i].Open = true
+		}
+	}
+}
+
+/**
+给有访问地址的叶子菜单节点绑定点击打开标签页的行为，父节点不绑定
+*/
+func bindMenuClick(roles []model.RoleTree, parents map[int64]bool) {
+	for i := range roles {
+		if parents[roles[i].Id] {
+			continue
+		}
+		if !strings.EqualFold(roles[i].Roleurl, "") {
+			roles[i].Click = "click: addTab('" + roles[i].Name + "','" + roles[i].Roleurl + "')"
+		}
+	}
+}
+
+/**
 根据ID查询role
 */
 func (this *roleService) GetRoleById(id int64) (model.Role, error) {
@@ -167,22 +215,13 @@ func (this *roleService) LoadMenu(id int64) []model.RoleTree {
 		}
 	}
 
-	pidMap := make(map[int64]bool, 10)
-	for _, role := range roles {
-		pidMap[role.Pid] = true
-	}
-
-	for i, role := range roles {
-		//展开所有父节点
-		if pidMap[role.Id] {
-			roles[i].Open = true
-			continue
-		}
-		if !strings.EqualFold(role.Roleurl, "") {
-			click := "click: addTab('" + roles[i].Name + "','" + roles[i].Roleurl + "')"
-			roles[i].Click = click
-		}
-	}
+	parents := collectParentIds(roles)
+	//展开所有父节点
+	openNodes(roles, func(role model.RoleTree) bool {
+		return parents[role.Id]
+	})
+	//给叶子菜单节点绑定点击打开标签页的行为
+	bindMenuClick(roles, parents)
 
 	return roles
 }

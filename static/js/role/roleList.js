@@ -4,7 +4,7 @@ $(function () {
             $('#role_list').datagrid('load', {
                 roleName: $('input[name="searchRoleName"]').val(),
                 roleUrl: $('input[name="searchRoleUrl"]').val(),
-                roleid: $("input[name='searchRolepid']").val()
+                roleid: getRolePid()
             });
         }
     }
@@ -34,6 +34,14 @@ $(function () {
         toolbar: role_toolbar
     });
 })
+
+//当前选中的权限节点ID：新增权限时作为父节点pid，刷新列表时作为查询条件
+function getRolePid() {
+    return $("input[name='searchRolepid']").val();
+}
+function setRolePid(id) {
+    $("input[name='searchRolepid']").val(id);
+}
 
 //添加修改按钮
 function roleOpt(val, row, index) {
@@ -66,7 +74,7 @@ var rolesetting = {
 //初始化左边tree
 $(document).ready(loadTree());
 function loadTree(id) {
-    url = "/role/listtree"
+    var url = "/role/listtree"
     // var zNodes = [{ id: 0, name: "Root", open: true }]
     var data = { id: id };
     $.post(url, data, function (result) {
@@ -77,7 +85,7 @@ function loadTree(id) {
 // 点击tree节点的时候 重新加载右边的权限列表
 function changeRoleList(event, treeId, treeNode) {
     loaddatagrid(treeNode.id)
-    $('#searchRolepid').val(treeNode.id)
+    setRolePid(treeNode.id)
 }
 
 //加载表格
@@ -87,44 +95,35 @@ function loaddatagrid(id) {
     });
 }
 
-//打开添加权限目录窗口
+//打开权限窗口的公共参数
+var roleWinOptions = {
+    width: 400,
+    height: 300,
+    modal: true,
+    maximizable: false,
+    minimizable: false,
+    collapsible: false//是否可折叠的
+};
+
+//打开权限相关窗口的公共方法
+function openRoleWin(selector, href) {
+    $(selector).window($.extend({}, roleWinOptions, { href: href }));
+}
+
+//打开添加权限窗口
 function openAddRoleWin() {
-    $('#addRole').window({
-        width: 400,
-        height: 300,
-        modal: true,
-        maximizable: false,
-        minimizable: false,
-        collapsible: false,//是否可折叠的
-        href: "/role/toadd"
-    });
+    openRoleWin('#addRole', "/role/toadd");
 }
 
 //打开添加权限目录窗口
 function openAddRoleDirWin() {
-    $('#addRoleDir').window({
-        width: 400,
-        height: 300,
-        modal: true,
-        maximizable: false,
-        minimizable: false,
-        collapsible: false,//是否可折叠的
-        href: "/role/toadddir"
-    });
+    openRoleWin('#addRoleDir', "/role/toadddir");
 }
 
 //打开修改权限窗口
 function openModifyRoleWin(roleid) {
     $("#roleid").attr("value", roleid);
-    $('#modifyrole').window({
-        width: 400,
-        height: 300,
-        modal: true,
-        maximizable: false,
-        minimizable: false,
-        collapsible: false,//是否可折叠的
-        href: "/role/tomodify?roleid=" + roleid
-    });
+    openRoleWin('#modifyrole', "/role/tomodify?roleid=" + roleid);
 }
 
 //删除方法
@@ -142,12 +141,12 @@ function deleteRole() {
     for (var i = 0; i < selections.length; i++) {
         idArray[i] = selections[i].id
     }
-    ids = idArray.join(",")
+    var ids = idArray.join(",")
 
-    url = "/role/deleterole"
+    var url = "/role/deleterole"
     var data = { ids: ids };
 
-    var pid = $("input[name='searchRolepid']").val()
+    var pid = getRolePid()
     $.post(url, data, function (result) {
         loadTree(pid)
         loaddatagrid(pid)
